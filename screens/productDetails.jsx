@@ -7,6 +7,11 @@ import { useRoute } from "@react-navigation/native"
 import axios from "axios"
 import {useStripe} from "@stripe/stripe-react-native"
 
+import { CFDropCheckoutPayment, CFEnvironment, CFPaymentComponentBuilder, CFPaymentModes, CFSession, CFThemeBuilder, } from 'cashfree-pg-api-contract';
+import { CFPaymentGatewayService } from 'react-native-cashfree-pg-sdk';
+
+
+
 const ProductDetails = ({navigation}) => {
 
     const route = useRoute();
@@ -23,7 +28,48 @@ const ProductDetails = ({navigation}) => {
         }
     }
 
-    const onCheckOut = async () =>{
+    
+    const onCashFreeCheckOut = async () => {
+        try {
+
+            // Create order to fetch payment_session_id and order_id.
+            const response = await axios.post(`${BASE_URL}/payments/createOrder`, { amount: item.price });
+            let {payment_session_id,order_id} = response.data;
+
+            // Create new session for this order with payment_session_id and orderid
+            const session = new CFSession(payment_session_id, order_id, CFEnvironment.SANDBOX);
+
+            // Configure payment methods
+            const paymentModes = new CFPaymentComponentBuilder()
+                .add(CFPaymentModes.CARD)
+                .add(CFPaymentModes.UPI)
+                .add(CFPaymentModes.NB)
+                .add(CFPaymentModes.WALLET)
+                .add(CFPaymentModes.PAY_LATER)
+                .build();
+
+            //  Design Theme for payment screen
+            const theme = new CFThemeBuilder()
+                .setNavigationBarBackgroundColor('#E64A19')
+                .setNavigationBarTextColor('#FFFFFF')
+                .setButtonBackgroundColor('#FFC107')
+                .setButtonTextColor('#FFFFFF')
+                .setPrimaryTextColor('#212121')
+                .setSecondaryTextColor('#757575')
+                .build();
+
+            // Make payment
+            const dropPayment = new CFDropCheckoutPayment(session, paymentModes, theme);
+            CFPaymentGatewayService.doPayment(dropPayment);
+
+        }catch(error) {
+            console.error("Error While Making Payment", error);
+        }
+
+    }
+
+
+    const onStripeCheckOut = async () =>{
         try{
             // create paymentintent
             const response = await axios.post(`${BASE_URL}/payments/intent`,{amount:Math.floor(count*(item.price)*100)})
@@ -135,7 +181,7 @@ const ProductDetails = ({navigation}) => {
         
         </View>
         <View style={styles.cartRow}>
-            <TouchableOpacity onPress={() =>onCheckOut()} style={styles.cartBtn}>
+            <TouchableOpacity onPress={() =>onCashFreeCheckOut()} style={styles.cartBtn}>
                 <Text style={styles.cartTitle}>Buy Now</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() =>{}} style={styles.addCart}>
